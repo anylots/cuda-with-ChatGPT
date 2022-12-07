@@ -1,23 +1,55 @@
-use cuda::runtime as cuda;
+#[macro_use]
+extern crate rustacuda;
+extern crate rustacuda_core;
 
-fn main() {
-    // 获取当前系统中的第一个NVIDIA GPU
-    let device = cuda::Device::get_device(0).unwrap();
-    println!("GPU: {}", device.name());
+use rustacuda::prelude::*;
+use rustacuda::memory::DeviceBox;
+use std::error::Error;
+use std::ffi::CString;
 
-    // 创建一个新的CUDA流，用于多个线程之间的同步
-    let stream = cuda::Stream::new(device, cuda::StreamFlags::NON_BLOCKING).unwrap();
+fn main() -> Result<(), Box<dyn Error>> {
+    // Initialize the CUDA API
+    rustacuda::init(CudaFlags::empty())?;
+     
+    // Get the first device
+    let device = Device::get_device(0)?;
 
-    // 在GPU上分配内存，并将其初始化为1
-    let mut data = cuda::DeviceBuffer::from_slice(&[1], device);
+    // Create a context associated to this device
+    let context = Context::create_and_push(
+        ContextFlags::MAP_HOST | ContextFlags::SCHED_AUTO, device)?;
 
-    // 在GPU上运行一个简单的计算任务，将数据中的每一个元素都乘以2
-    data.add_scalar(2, &stream).unwrap();
+    // Load the module containing the function we want to call
+    let module_data = CString::new(include_str!("../resources/add.ptx"))?;
+    let module = Module::load_from_string(&module_data)?;
 
-    // 将结果拷贝到CPU上的内存中
-    let mut result = vec![0; 1];
-    data.copy_to(&mut result[..], &stream).unwrap();
+    // Create a stream to submit work to
+    let stream = Stream::new(StreamFlags::NON_BLOCKING, None)?;
 
-    // 打印结果
-    println!("Result: {:?}", result);
+    // Allocate space on the device and copy numbers to it.
+    let mut x = DeviceBox::new(&10.0f32)?;
+    let mut y = DeviceBox::new(&20.0f32)?;
+    let mut result = DeviceBox::new(&0.0f32)?;
+
+    // Launching kernels is unsafe since Rust can't enforce safety - think of kernel launches
+    // as a foreign-function call. In this case, it is - this kernel is written in CUDA C.
+    unsafe {
+        // Launch the `sum` function with one block containing one thread on the given stream.
+        launch!(module.sum<<<1, 1, 0, stream>>>(
+            x.as_device_ptr(),
+            y.as_device_ptr(),
+            result.as_device_ptr(),
+            1 // Length
+        ))?;
+    }
+
+    // The kernel launch is asynchronous, so we wait for the kernel to finish executing
+    stream.synchronize()?;
+
+    // Copy the result back to the host
+    let mut result_host = 0.0f32;
+    result.copy_to(&mut result_host)?;
+     
+    println!("Sum is {}", result_host);
+
+    Ok(())
 }
