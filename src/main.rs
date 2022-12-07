@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Launching kernels is unsafe since Rust can't enforce safety - think of kernel launches
     // as a foreign-function call. In this case, it is - this kernel is written in CUDA C.
-    let mut i = 0;
+    let mut i:i128 = 0;
 
     while i < 10000000000000000 {
         unsafe {
