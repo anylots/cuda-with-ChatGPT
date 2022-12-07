@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Launching kernels is unsafe since Rust can't enforce safety - think of kernel launches
     // as a foreign-function call. In this case, it is - this kernel is written in CUDA C.
-    for i in 100 {
+    for i in 0..100 {
         unsafe {
             // Launch the `sum` function with one block containing one thread on the given stream.
             launch!(module.sum<<<1, 1, 0, stream>>>(
