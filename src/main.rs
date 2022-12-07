@@ -45,7 +45,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // The kernel launch is asynchronous, so we wait for the kernel to finish executing
-    stream.synchronize()?;
+    for i in 0..100000 {
+        stream.synchronize()?;
+    }
 
     // Copy the result back to the host
     let mut result_host = 0.0f32;
