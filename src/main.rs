@@ -11,6 +11,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Initialize the CUDA API
     rustacuda::init(CudaFlags::empty())?;
 
+    //NVIDIA-SMI
+    //TODO
+
     // Get the first device
     let device = Device::get_device(0)?;
 
